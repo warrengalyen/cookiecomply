@@ -15,19 +15,19 @@ document.CookieConsent.config = {
         performance: {
             name: 'Performance Cookies',
             needed: false,
-            wanted: true,
+            wanted: false,
             text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur eu commodo est, nec gravida odio. Suspendisse scelerisque a ex nec semper.'
         },
         social: {
             name: 'Social media',
             needed: false,
-            wanted: true,
+            wanted: false,
             text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur eu commodo est, nec gravida odio. Suspendisse scelerisque a ex nec semper.'
         },
         targeting: {
             name: 'Targeting Cookies',
             needed: false,
-            wanted: true,
+            wanted: false,
             text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur eu commodo est, nec gravida odio. Suspendisse scelerisque a ex nec semper.'
         },
     },
@@ -56,46 +56,20 @@ document.CookieConsent.buffer = {
 
     ; (function (Cookie) {
 
-        var consent = false;
-
-
+        // If consent cookie exists
         cookieToConfig();
-
-        // Checking for the value in cookie named "consent"
-        if (document.cookie.indexOf('consent=1') < 0) {
-            consent = false;
-        } else {
-            consent = true;
-        }
-
-        var appendChild = Element.prototype.appendChild;
-        var insertBefore = Element.prototype.insertBefore;
-
 
         Element.prototype.appendChild = function (elem) {
 
             console.log('Appending:', arguments);
 
-            if (!consent) {
-                if (arguments[0].tagName === 'SCRIPT') {
-                    Cookie.buffer.appendChild.push({ 'this': this, arguments: arguments });
-                    return undefined;
-                }
-            }
-
-            return appendChild.apply(this, arguments);
-        }
-
-        Element.prototype.insertBefore = function (elem) {
-
-            console.log('Inserting:', arguments);
-
-            if (!consent) {
-                if (arguments[0].tagName === 'SCRIPT') {
-                    for (let key in Cookie.config.services) {
-                        if (Cookie.config.services[key].type === 'script-tag') {
-                            if (arguments[0].outerHTML.indexOf(Cookie.config.services[key].search) >= 0) {
-                                Cookie.buffer.insertBefore.push({ 'this': this, arguments: arguments });
+            if (arguments[0].tagName === 'SCRIPT') {
+                for (let key in Cookie.config.services) {
+                    // Did user opt-in?
+                    if (Cookie.config.services[key].type === 'script-tag') {
+                        if (arguments[0].outerHTML.includes(Cookie.config.services[key].search)) {
+                            if (document.CookieConsent.config.categories[document.CookieConsent.config.services[key].category].wanted === false) {
+                                Cookie.buffer.appendChild.push({ 'this': this, arguments: arguments });
                                 return undefined;
                             }
                         }
@@ -103,7 +77,28 @@ document.CookieConsent.buffer = {
                 }
             }
 
-            return insertBefore.apply(this, arguments);
+            return Node.prototype.appendChild.apply(this, arguments);
+        }
+
+        Element.prototype.insertBefore = function (elem) {
+
+            console.log('Inserting:', arguments);
+
+            if (arguments[0].tagName === 'SCRIPT') {
+                for (let key in Cookie.config.services) {
+                    // Did user opt-in?
+                    if (Cookie.config.services[key].type === 'script-tag') {
+                        if (arguments[0].outerHTML.includes(Cookie.config.services[key].search)) {
+                            if (document.CookieConsent.config.categories[document.CookieConsent.config.services[key].category].wanted === false) {
+                                Cookie.buffer.insertBefore.push({ 'this': this, 'category': document.CookieConsent.config.services[key].category, arguments: arguments });
+                                return undefined;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return Node.prototype.insertBefore.apply(this, arguments);
         }
 
 
@@ -114,15 +109,12 @@ document.CookieConsent.buffer = {
             // If you click Accept all cookies
             document.getElementById('consent-give').addEventListener('click', function () {
 
-                consent = true;
+                // We set config to full consent
+                for (let key in Cookie.config.categories) {
+                    Cookie.config.categories[key].wanted = true;
+                }
 
-                Cookie.buffer.appendChild.forEach(function (action, index) {
-                    appendChild.apply(action.this, action.arguments);
-                });
-
-                Cookie.buffer.insertBefore.forEach(function (action) {
-                    insertBefore.apply(action.this, action.arguments);
-                });
+                writeBufferToDOM();
 
                 buildCookie((cookie) => {
                     setCookie(cookie);
@@ -168,6 +160,8 @@ document.CookieConsent.buffer = {
                     });
                 });
 
+                writeBufferToDOM();
+
             });
         });
     })(document.CookieConsent);
@@ -180,6 +174,21 @@ function ready(fn) {
     } else {
         document.addEventListener('DOMContentLoaded', fn);
     }
+}
+
+function writeBufferToDOM() {
+
+    document.CookieConsent.buffer.appendChild.forEach(function (action, index) {
+        if (document.CookieConsent.config.categories[action.category].wanted === true) {
+            Node.prototype.appendChild.apply(action.this, action.arguments);
+        }
+    });
+
+    document.CookieConsent.buffer.insertBefore.forEach(function (action) {
+        if (document.CookieConsent.config.categories[action.category].wanted === true) {
+            Node.prototype.insertBefore.apply(action.this, action.arguments);
+        }
+    });
 }
 
 function buildCookie(callback) {
@@ -206,12 +215,14 @@ function cookieToConfig() {
     (document.cookie.split(';').filter((item) => {
         if (item.includes('cconsent')) {
             var cookieData = JSON.parse(item.split('=')[1]);
+            for (let key in cookieData) {
+                document.CookieConsent.config.categories[key].wanted = cookieData[key];
+            }
+            return true;
         }
-        for (let key in cookieData) {
-            document.CookieConsent.config.categories[key].wanted = cookieData[key];
-        }
-        console.log(document.CookieConsent.config.categories);
     }).length)
+
+    return false;
 }
 
 function buildInterface(callback) {
