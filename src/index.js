@@ -37,63 +37,56 @@ document.CookieConsent.config = {
             cookieName: 'fr',
             name: 'Facebook',
             category: 'social',
-            type: 'script-tag',
+            type: 'dynamic-script',
             search: 'fbevents.js'
         },
         gtm: {
             cookieName: 'tw',
             name: 'Google Tag Manager',
             category: 'social',
-            type: 'script-tag',
+            type: 'dynamic-script',
             search: 'gtm.js'
         },
         a2a: {
             cookieName: 'tw',
             name: 'Addtoany',
             category: 'social',
-            type: 'script-tag',
+            type: 'dynamic-script',
             search: 'addtoany'
         },
         visualwebopt: {
             cookieName: 'tw',
             name: 'Visual website optimizer',
             category: 'social',
-            type: 'script-tag',
+            type: 'dynamic-script',
             search: 'visualwebsiteoptimizer'
         },
         twitter: {
             cookieName: 'tw',
             name: 'Visual website optimizer',
             category: 'social',
-            type: 'script-tag',
+            type: 'dynamic-script',
             search: 'twitter'
         },
         marketo: {
             cookieName: 'tw',
             name: 'Visual website optimizer',
             category: 'social',
-            type: 'script-tag',
+            type: 'dynamic-script',
             search: 'marketo'
-        },
-        azalead: {
-            cookieName: 'tw',
-            name: 'Azalead',
-            category: 'social',
-            type: 'script-tag',
-            search: 'azalead'
         },
         bizo: {
             cookieName: 'tw',
             name: 'Bizo',
             category: 'social',
-            type: 'script-tag',
+            type: 'dynamic-script',
             search: 'bizographics'
         },
         linkedin: {
             cookieName: 'tw',
             name: 'Linkedin',
             category: 'social',
-            type: 'script-tag',
+            type: 'dynamic-script',
             search: 'linkedin'
         }
     }
@@ -104,143 +97,186 @@ document.CookieConsent.buffer = {
     insertBefore: []
 }
 
-    ; (function (Cookie) {
+document.CookieConsent.functions = {
 
-        // If consent cookie exists
-        cookieToConfig();
+}
 
-        Element.prototype.appendChild = function (elem) {
+// If consent cookie exists
+// were parsing its content to config
+cookieToConfig();
 
-            if (arguments[0].tagName === 'SCRIPT') {
-                console.log('Appending:', arguments);
-                for (let key in Cookie.config.services) {
-                    // Did user opt-in?
-                    if (Cookie.config.services[key].type === 'script-tag') {
-                        if (arguments[0].outerHTML.includes(Cookie.config.services[key].search)) {
-                            if (document.CookieConsent.config.categories[document.CookieConsent.config.services[key].category].wanted === false) {
-                                Cookie.buffer.appendChild.push({ 'this': this, 'category': document.CookieConsent.config.services[key].category, arguments: arguments });
-                                return undefined;
-                            }
+// Overriding the appendChild and insertBefore methods
+// To filter any scripts inserted at page load
+// Were also buffering the blocked scripts so we can re-add later 
+; (function (Cookie) {
+
+    Element.prototype.appendChild = function (elem) {
+
+        if (arguments[0].tagName === 'SCRIPT') {
+            console.log('Appending:', arguments);
+            for (let key in Cookie.config.services) {
+                // Did user opt-in?
+                if (Cookie.config.services[key].type === 'dynamic-script') {
+                    if (arguments[0].outerHTML.includes(Cookie.config.services[key].search)) {
+                        if (document.CookieConsent.config.categories[document.CookieConsent.config.services[key].category].wanted === false) {
+                            Cookie.buffer.appendChild.push({ 'this': this, 'category': document.CookieConsent.config.services[key].category, arguments: arguments });
+                            return undefined;
                         }
                     }
                 }
             }
-
-            return Node.prototype.appendChild.apply(this, arguments);
         }
 
-        Element.prototype.insertBefore = function (elem) {
+        return Node.prototype.appendChild.apply(this, arguments);
+    }
 
-            if (arguments[0].tagName === 'SCRIPT') {
-                console.log('Inserting:', arguments);
-                for (let key in Cookie.config.services) {
-                    // Did user opt-in?
-                    if (Cookie.config.services[key].type === 'script-tag') {
-                        if (arguments[0].outerHTML.includes(Cookie.config.services[key].search)) {
-                            if (document.CookieConsent.config.categories[document.CookieConsent.config.services[key].category].wanted === false) {
-                                Cookie.buffer.insertBefore.push({ 'this': this, 'category': document.CookieConsent.config.services[key].category, arguments: arguments });
-                                return undefined;
-                            }
+    Element.prototype.insertBefore = function (elem) {
+
+        if (arguments[0].tagName === 'SCRIPT') {
+            console.log('Inserting:', arguments);
+            for (let key in Cookie.config.services) {
+                // Did user opt-in?
+                if (Cookie.config.services[key].type === 'dynamic-script') {
+                    if (arguments[0].outerHTML.includes(Cookie.config.services[key].search)) {
+                        if (document.CookieConsent.config.categories[document.CookieConsent.config.services[key].category].wanted === false) {
+                            Cookie.buffer.insertBefore.push({ 'this': this, 'category': document.CookieConsent.config.services[key].category, arguments: arguments });
+                            return undefined;
                         }
                     }
                 }
             }
-
-            return Node.prototype.insertBefore.apply(this, arguments);
         }
 
+        return Node.prototype.insertBefore.apply(this, arguments);
+    }
+})(document.CookieConsent);
 
-        buildInterface(function (bar, modal) {
+// Were building the interface and binding the events
+; (function (Cookie) {
 
-            // Show bar
-            if (!document.CookieConsent.config.cookieExists) {
-                setTimeout(() => {
-                    bar.classList.remove('hidden');
-                }, 3000);
+    buildInterface(function (bar, modal) {
+
+        // Show bar
+        if (!document.CookieConsent.config.cookieExists) {
+            setTimeout(() => {
+                bar.classList.remove('hidden');
+            }, 3000);
+        }
+
+        refreshModal(modal);
+
+        // If you click Accept all cookies
+        document.getElementById('consent-give').addEventListener('click', function () {
+
+            // We set config to full consent
+            for (let key in Cookie.config.categories) {
+                Cookie.config.categories[key].wanted = true;
             }
 
-            refreshModal(modal);
+            writeBufferToDOM();
 
-            // If you click Accept all cookies
-            document.getElementById('consent-give').addEventListener('click', function () {
-
-                // We set config to full consent
-                for (let key in Cookie.config.categories) {
-                    Cookie.config.categories[key].wanted = true;
-                }
-
-                writeBufferToDOM();
-
-                buildCookie((cookie) => {
-                    setCookie(cookie);
-                });
-
-                bar.classList.add('hidden');
-
+            buildCookie((cookie) => {
+                setCookie(cookie);
             });
 
-            // If you click Cookie settings
-            Array.prototype.forEach.call(document.getElementsByClassName('consent-edit'), (edit) => {
-                edit.addEventListener('click', function () {
-                    refreshModal(modal);
-                    modal.classList.add('visible');
-                });
-            });
+            bar.classList.add('hidden');
 
-            // If you click trough the tabs on Cookie settings
-            modal.querySelector('.left').addEventListener('click', function (event) {
-                if (event.target.classList.contains('tab')) {
-                    if (event.target.dataset.tab) {
-                        let tabContents = modal.querySelectorAll('[class^=tab-content]');
-                        let tabs = modal.querySelectorAll('.tab');
+        });
 
-                        tabs.forEach((tab) => {
-                            tab.classList.remove('active');
-                        });
-
-                        tabContents.forEach((tabContent) => {
-                            tabContent.classList.remove('visible');
-                        });
-
-                        event.target.classList.add('active');
-                        modal.querySelector(`[class=tab-content-${event.target.dataset.tab}]`).classList.add('visible');
-                    }
-                }
-            });
-
-            // If you switch on and off categories
-            modal.querySelector('.right').addEventListener('click', function (event) {
-                if (event.target.classList.contains('category-onoff')) {
-                    let status = event.target.parentNode.previousSibling;
-                    if (event.target.checked === false) {
-                        status.textContent = 'OFF'
-                    } else if (event.target.checked === true) {
-                        status.textContent = 'ON'
-                    }
-                }
-            });
-
-            // If you click submit on cookie settings
-            document.getElementById('cookie-modal-submit').addEventListener('click', function () {
-
-                modal.querySelectorAll('.switch input').forEach(function (elem) {
-                    Cookie.config.categories[elem.dataset.category].wanted = elem.checked;
-                });
-
-                buildCookie((cookie) => {
-                    setCookie(cookie, () => {
-                        modal.classList.remove('visible');
-                        bar.classList.add('hidden');
-                    });
-                });
-
-                writeBufferToDOM();
-
+        // If you click Cookie settings
+        Array.prototype.forEach.call(document.getElementsByClassName('consent-edit'), (edit) => {
+            edit.addEventListener('click', function () {
+                refreshModal(modal);
+                modal.classList.add('visible');
             });
         });
-    })(document.CookieConsent);
+
+        // If you click trough the tabs on Cookie settings
+        modal.querySelector('.left').addEventListener('click', function (event) {
+            if (event.target.classList.contains('tab')) {
+                if (event.target.dataset.tab) {
+                    let tabContents = modal.querySelectorAll('[class^=tab-content]');
+                    let tabs = modal.querySelectorAll('.tab');
+
+                    tabs.forEach((tab) => {
+                        tab.classList.remove('active');
+                    });
+
+                    tabContents.forEach((tabContent) => {
+                        tabContent.classList.remove('visible');
+                    });
+
+                    event.target.classList.add('active');
+                    modal.querySelector(`[class=tab-content-${event.target.dataset.tab}]`).classList.add('visible');
+                }
+            }
+        });
+
+        // If you switch on and off categories
+        modal.querySelector('.right').addEventListener('click', function (event) {
+            if (event.target.classList.contains('category-onoff')) {
+                let status = event.target.parentNode.previousSibling;
+                if (event.target.checked === false) {
+                    status.textContent = 'OFF'
+                } else if (event.target.checked === true) {
+                    status.textContent = 'ON'
+                }
+            }
+        });
+
+        // If you click submit on cookie settings
+        document.getElementById('cookie-modal-submit').addEventListener('click', function () {
+
+            modal.querySelectorAll('.switch input').forEach(function (elem) {
+                Cookie.config.categories[elem.dataset.category].wanted = elem.checked;
+            });
+
+            buildCookie((cookie) => {
+                setCookie(cookie, () => {
+                    modal.classList.remove('visible');
+                    bar.classList.add('hidden');
+                });
+            });
+
+            writeBufferToDOM();
+
+        });
+    });
+
+})(document.CookieConsent);
 
 
+; (function (Cookie) {
+
+    ready(function () {
+
+        // Creating a list of services based on
+        // script-tag block for quick access
+        var blockableTagList = [];
+        for (var service in Cookie.config.services) {
+            if (Cookie.config.services[service].type === 'script-tag') blockableTagList.push(Cookie.config.services[service].search);
+        }
+
+        var scriptTags = document.querySelectorAll('script[type="text/plain"]');
+
+        scriptTags.forEach(function (scriptTag) {
+            var newtag = scriptTag.cloneNode();
+            newtag.type = 'application/javascript';
+            if (!blockableTagList.includes(scriptTag.dataset.consent)) {
+                var parentNode = scriptTag.parentNode;
+                parentNode.insertBefore(newtag, scriptTag);
+                parentNode.removeChild(scriptTag);
+            }
+        });
+
+    });
+
+})(document.CookieConsent);
+
+// Wrapper function
+; (function (Cookie) {
+
+})(document.CookieConsent);
 
 function ready(fn) {
     if (document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading") {
