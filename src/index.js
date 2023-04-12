@@ -88,6 +88,13 @@ document.CookieConsent.config = {
             category: 'social',
             type: 'dynamic-script',
             search: 'linkedin'
+        },
+        wrapped: {
+            cookieName: 'tw',
+            name: 'Linkedin',
+            category: 'social',
+            type: 'wrapped',
+            search: 'linkedin'
         }
     }
 }
@@ -245,7 +252,7 @@ cookieToConfig();
 
 })(document.CookieConsent);
 
-
+// Blocking SCRIPT tags by renaming them
 ; (function (Cookie) {
 
     ready(function () {
@@ -273,8 +280,19 @@ cookieToConfig();
 
 })(document.CookieConsent);
 
-// Wrapper function
+// Wrapper function to block scripts
 ; (function (Cookie) {
+
+    // Creating a list of services based on
+    // script-tag block for closure
+    var blockableList = [];
+    for (var service in Cookie.config.services) {
+        if (Cookie.config.services[service].type === 'wrapper') blockableList.push(Cookie.config.services[service].search);
+    }
+
+    function wrapper() {
+
+    }
 
 })(document.CookieConsent);
 
